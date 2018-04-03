@@ -76,7 +76,7 @@ lazy val node = (project in file("node"))
   .settings(commonSettings: _*)
   .enablePlugins(sbtdocker.DockerPlugin, RpmPlugin, DebianPlugin, JavaAppPackaging, BuildInfoPlugin)
   .settings(
-    version := "0.1.3",
+    version := "0.2.1",
     name := "rnode",
     libraryDependencies ++=
       apiServerDependencies ++ commonDependencies ++ kamonDependencies ++ protobufDependencies ++ Seq(
@@ -108,7 +108,7 @@ lazy val node = (project in file("node"))
     packageSummary in Linux := "RChain Node",
     packageDescription in Linux := "RChain Node - the RChain blockchain node server software.",
     /* Debian */
-    debianPackageDependencies in Debian ++= Seq("openjdk-8-jre-headless", "bash (>= 2.05a-11)", "libsodium18 (>= 1.0.11-1)"),
+    debianPackageDependencies in Debian ++= Seq("openjdk-8-jre-headless", "bash (>= 2.05a-11)", "libsodium18 (>= 1.0.8-5)"),
     /* Redhat */
     rpmVendor := "rchain.coop",
     rpmUrl := Some("https://rchain.coop"),
@@ -171,10 +171,11 @@ lazy val roscala = (project in file("roscala"))
   .dependsOn(roscala_macros)
 
 lazy val rspace = (project in file("rspace"))
-  .enablePlugins(SiteScaladocPlugin, GhpagesPlugin)
+  .enablePlugins(SiteScaladocPlugin, GhpagesPlugin, TutPlugin)
   .settings(commonSettings: _*)
   .settings(
     name := "rspace",
+    version := "0.1.1",
     libraryDependencies ++= commonDependencies ++ protobufDependencies ++ Seq(
       lmdbjava,
       catsCore
@@ -182,6 +183,8 @@ lazy val rspace = (project in file("rspace"))
     PB.targets in Compile := Seq(
       scalapb.gen(flatPackage = true) -> (sourceManaged in Compile).value
     ),
+    /* Tutorial */
+    tutTargetDirectory := (baseDirectory in Compile).value / "docs",
     /* Publishing Settings */
     scmInfo := Some(ScmInfo(url("https://github.com/rchain/rchain"), "git@github.com:rchain/rchain.git")),
     git.remoteRepo := scmInfo.value.get.connection,

@@ -4,7 +4,6 @@ import java.nio.ByteBuffer
 import java.nio.file.Path
 import java.security.MessageDigest
 
-import scala.collection.JavaConverters._
 import cats.implicits._
 import com.google.protobuf.ByteString
 import coop.rchain.rspace.Serialize.mkProtobufInstance
@@ -14,7 +13,7 @@ import coop.rchain.rspace.util._
 import org.lmdbjava.DbiFlags.MDB_CREATE
 import org.lmdbjava._
 
-import scala.collection.mutable
+import scala.collection.JavaConverters._
 
 /**
   * The main store class.
@@ -129,16 +128,9 @@ class LMDBStore[C, P, A, K] private (env: Env[ByteBuffer],
 
   private[rspace] def removeA(txn: T, channels: List[C], index: Int): Unit = {
     val keyCs = hashCs(channels)
-    Option(_dbAs.get(txn, keyCs)).map(fromByteBuffer[A]) match {
-      case Some(as) =>
-        val newAs = util.dropIndex(as, index)
-        if (newAs.nonEmpty) {
-          _dbAs.put(txn, keyCs, toByteBuffer(newAs))
-        } else {
-          _dbAs.delete(txn, keyCs)
-          collectGarbage(txn, keyCs, asCollected = true)
-        }
-      case None => throw new IllegalArgumentException(s"removeA: no values at $channels")
+    readAsBytesList(txn, keyCs) match {
+      case Some(as) => writeAsBytesList(txn, keyCs, util.dropIndex(as, index))
+      case None     => throw new IllegalArgumentException(s"removeA: no values at $channels")
     }
   }
 

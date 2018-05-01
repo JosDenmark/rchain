@@ -1,5 +1,7 @@
 package coop.rchain.rspace
 
+import scala.collection.immutable.Seq
+
 package object util {
 
   /**
@@ -30,8 +32,15 @@ package object util {
 
   /** Drops the 'i'th element of a list.
     */
-  def dropIndex[T](xs: List[T], n: Int): List[T] = {
+  def dropIndex[T](xs: Seq[T], n: Int): Seq[T] = {
     val (l1, l2) = xs splitAt n
     l1 ++ (l2 drop 1)
+  }
+
+  /** Removes the first occurrence of an element that matches the given predicate.
+    */
+  def removeFirst[T](xs: List[T])(p: T => Boolean): List[T] = {
+    val (l1, l2) = xs.span(x => !p(x))
+    l1 ::: l2.drop(1)
   }
 }

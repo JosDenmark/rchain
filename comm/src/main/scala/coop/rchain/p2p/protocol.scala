@@ -5,6 +5,7 @@ import com.google.protobuf.ByteString
 import com.google.protobuf.any.{Any => AnyProto}
 import coop.rchain.comm.protocol.rchain._
 import coop.rchain.comm.protocol.routing
+import coop.rchain.p2p.effects._
 import cats._, cats.data._, cats.implicits._
 import coop.rchain.catscontrib._, Catscontrib._, Encryption.{Key, Nonce}
 
@@ -68,6 +69,11 @@ object NetworkProtocol {
     Frameable(
       Frameable.Message.ProtocolHandshakeResponse(
         ProtocolHandshakeResponse(ByteString.copyFrom(nonce))))
+
+  def framePacket(src: PeerNode, content: ByteString): Frameable =
+    Frameable(
+      Frameable.Message.Packet(Packet(content))
+    )
 }
 
 final case class EncryptionHandshakeMessage(proto: routing.Protocol, timestamp: Long)

@@ -1,5 +1,6 @@
 import Dependencies._
 import BNFC._
+import NativePackagerHelper._
 
 lazy val projectSettings = Seq(
   organization := "coop.rchain",
@@ -24,6 +25,31 @@ lazy val compilerSettings = CompilerSettings.options ++ Seq(
 
 lazy val commonSettings = projectSettings ++ coverageSettings ++ compilerSettings
 
+lazy val shared = (project in file("shared"))
+  .settings(commonSettings: _*)
+  .settings(
+    version := "0.1",
+    libraryDependencies ++= commonDependencies ++ Seq(
+      catsCore,
+      monix
+    )
+  )
+
+lazy val casper = (project in file("casper"))
+  .settings(commonSettings: _*)
+  .settings(
+    libraryDependencies ++= commonDependencies ++ protobufDependencies ++ Seq(
+      catsCore,
+      catsMtl,
+      monix,
+      scalapbRuntimegGrpc
+    ),
+    PB.targets in Compile := Seq(
+      scalapb.gen() -> (sourceManaged in Compile).value
+    )
+  )
+  .dependsOn(comm % "compile->compile;test->test", shared, crypto) // TODO: Add models, rspace
+
 lazy val comm = (project in file("comm"))
   .settings(commonSettings: _*)
   .settings(
@@ -40,7 +66,7 @@ lazy val comm = (project in file("comm"))
       PB.gens.java                        -> (sourceManaged in Compile).value,
       scalapb.gen(javaConversions = true) -> (sourceManaged in Compile).value
     )
-  )
+  ).dependsOn(shared)
 
 lazy val crypto = (project in file("crypto"))
   .settings(commonSettings: _*)
@@ -81,25 +107,41 @@ lazy val node = (project in file("node"))
     libraryDependencies ++=
       apiServerDependencies ++ commonDependencies ++ kamonDependencies ++ protobufDependencies ++ Seq(
         catsCore,
+        grpcNetty,
+        jline, 
         scallop,
-        scalaUri
+        scalaUri,
+        scalapbRuntimegGrpc
       ),
+    PB.targets in Compile := Seq(
+      PB.gens.java                        -> (sourceManaged in Compile).value / "protobuf",
+      scalapb.gen(javaConversions = true) -> (sourceManaged in Compile).value / "protobuf"
+    ),
     buildInfoKeys := Seq[BuildInfoKey](name, version, scalaVersion, sbtVersion),
     buildInfoPackage := "coop.rchain.node",
     mainClass in assembly := Some("coop.rchain.node.Main"),
+    assemblyMergeStrategy in assembly := {
+      case x if x.endsWith("io.netty.versions.properties") => MergeStrategy.first
+      case x =>
+        val oldStrategy = (assemblyMergeStrategy in assembly).value
+        oldStrategy(x)
+    },
     /* Dockerization */
     dockerfile in docker := {
       val artifact: File     = assembly.value
       val artifactTargetPath = s"/${artifact.name}"
       val entry: File        = baseDirectory(_ / "main.sh").value
       val entryTargetPath    = "/bin"
+      val rholangExamples = (baseDirectory in rholang).value / "examples"
       new Dockerfile {
         from("openjdk:8u151-jre-alpine")
         add(artifact, artifactTargetPath)
+        copy(rholangExamples, "/usr/share/rnode/examples")
         env("RCHAIN_TARGET_JAR", artifactTargetPath)
         add(entry, entryTargetPath)
         run("apk", "update")
         run("apk", "add", "libsodium")
+        run("mkdir", "/var/lib/rnode")
         entryPoint("/bin/main.sh")
       }
     },
@@ -107,15 +149,25 @@ lazy val node = (project in file("node"))
     maintainer in Linux := "Pyrofex, Inc. <info@pyrofex.net>",
     packageSummary in Linux := "RChain Node",
     packageDescription in Linux := "RChain Node - the RChain blockchain node server software.",
+    linuxPackageMappings ++= {
+      val file = baseDirectory.value / "rnode.service"
+      val rholangExamples = directory((baseDirectory in rholang).value / "examples")
+        .map { case (f, p) => (f, s"/usr/share/rnode/$p") }
+      Seq(packageMapping(file -> "/lib/systemd/system/rnode.service"), packageMapping(rholangExamples:_*))
+    },
     /* Debian */
     debianPackageDependencies in Debian ++= Seq("openjdk-8-jre-headless", "bash (>= 2.05a-11)", "libsodium18 (>= 1.0.8-5)"),
     /* Redhat */
     rpmVendor := "rchain.coop",
     rpmUrl := Some("https://rchain.coop"),
     rpmLicense := Some("Apache 2.0"),
+    packageArchitecture in Rpm := "noarch",
+    maintainerScripts in Rpm := maintainerScriptsAppendFromFile((maintainerScripts in Rpm).value)(
+      RpmConstants.Post -> (sourceDirectory.value / "rpm" / "scriptlets" / "post")
+    ),    
     rpmPrerequisites := Seq("libsodium >= 1.0.14-1")
   )
-  .dependsOn(comm, crypto, rholang)
+  .dependsOn(casper, comm, crypto, rholang)
 
 lazy val regex = (project in file("regex"))
   .settings(commonSettings: _*)
@@ -176,15 +228,14 @@ lazy val rspace = (project in file("rspace"))
   .settings(
     name := "rspace",
     version := "0.1.1",
-    libraryDependencies ++= commonDependencies ++ protobufDependencies ++ Seq(
+    libraryDependencies ++= commonDependencies ++ Seq(
       lmdbjava,
-      catsCore
-    ),
-    PB.targets in Compile := Seq(
-      scalapb.gen(flatPackage = true) -> (sourceManaged in Compile).value
+      catsCore,
+      scodecCore,
+      scodecBits
     ),
     /* Tutorial */
-    tutTargetDirectory := (baseDirectory in Compile).value / "docs",
+    tutTargetDirectory := (baseDirectory in Compile).value / ".." / "docs" / "rspace",
     /* Publishing Settings */
     scmInfo := Some(ScmInfo(url("https://github.com/rchain/rchain"), "git@github.com:rchain/rchain.git")),
     git.remoteRepo := scmInfo.value.get.connection,
@@ -228,6 +279,7 @@ lazy val rspace = (project in file("rspace"))
       )
     )
   )
+  .dependsOn(shared)
 
 lazy val rspaceBench = (project in file("rspace-bench"))
   .settings(commonSettings, libraryDependencies ++= commonDependencies)
@@ -236,4 +288,4 @@ lazy val rspaceBench = (project in file("rspace-bench"))
 
 lazy val rchain = (project in file("."))
   .settings(commonSettings: _*)
-  .aggregate(crypto, comm, models, regex, rspace, node, rholang, rholangCLI, roscala)
+  .aggregate(casper, crypto, comm, models, regex, rspace, node, rholang, rholangCLI, roscala)

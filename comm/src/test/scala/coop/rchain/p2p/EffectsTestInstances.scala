@@ -1,9 +1,14 @@
 package coop.rchain.p2p
 
-import coop.rchain.comm._, CommError._
 import scala.concurrent.duration.{Duration, MILLISECONDS}
+
+import cats._
+import cats.implicits._
+
 import coop.rchain.catscontrib._
-import cats._, cats.data._, cats.implicits._
+import coop.rchain.comm.CommError._
+import coop.rchain.comm._
+import coop.rchain.p2p.effects._
 
 /** Eagerly evaluated instances to do reasoning about applied effects */
 object EffectsTestInstances {
@@ -22,11 +27,24 @@ object EffectsTestInstances {
     }
   }
 
-  class CommunicationStub[F[_]: Capture: Applicative](src: ProtocolNode) extends Communication[F] {
+  class NodeDiscoveryStub[F[_]: Capture]() extends NodeDiscovery[F] {
 
+    var nodes: List[PeerNode] = List.empty[PeerNode]
+
+    def reset(): Unit =
+      nodes = List.empty[PeerNode]
+
+    def addNode(node: PeerNode): F[Unit] = Capture[F].capture {
+      nodes = node :: nodes
+    }
+    def findMorePeers(limit: Int): F[Seq[PeerNode]] = ???
+    def peers: F[Seq[PeerNode]]                     = ???
+  }
+
+  class TransportLayerStub[F[_]: Capture: Applicative](src: ProtocolNode)
+      extends TransportLayer[F] {
     type Responses = ProtocolNode => (ProtocolMessage => CommErr[ProtocolMessage])
     var reqresp: Option[Responses]      = None
-    var nodes: List[PeerNode]           = List.empty[PeerNode]
     var requests: List[ProtocolMessage] = List.empty[ProtocolMessage]
 
     def setResponses(responses: Responses): Unit =
@@ -34,7 +52,6 @@ object EffectsTestInstances {
 
     def reset(): Unit = {
       reqresp = None
-      nodes = List.empty[PeerNode]
       requests = List.empty[ProtocolMessage]
     }
 
@@ -52,13 +69,7 @@ object EffectsTestInstances {
         requests = requests :+ msg
         Right(())
       }
-    def addNode(node: PeerNode): F[Unit] = Capture[F].capture {
-      nodes = node :: nodes
-    }
     def broadcast(msg: ProtocolMessage): F[Seq[CommErr[Unit]]] = ???
-    def findMorePeers(limit: Int): F[Seq[PeerNode]]            = ???
-    def countPeers: F[Int]                                     = ???
-    def receiver: F[Unit]                                      = ???
   }
 
   import Encryption._
@@ -84,6 +95,32 @@ object EffectsTestInstances {
     def decrypt(pub: Key, sec: Key, nonce: Nonce, cipher: Array[Byte]): F[Array[Byte]] = {
       decryptions = decryptions :+ (pub, sec, nonce, cipher)
       cipher.pure[F]
+    }
+  }
+
+  class LogStub[F[_]: Applicative] extends Log[F] {
+
+    var infos: List[String]  = List.empty[String]
+    var warns: List[String]  = List.empty[String]
+    var errors: List[String] = List.empty[String]
+
+    def reset(): Unit = {
+      infos = List.empty[String]
+      warns = List.empty[String]
+      errors = List.empty[String]
+    }
+    def debug(msg: String): F[Unit] = ().pure[F]
+    def info(msg: String): F[Unit] = {
+      infos = infos :+ msg
+      ().pure[F]
+    }
+    def warn(msg: String): F[Unit] = {
+      warns = warns :+ msg
+      ().pure[F]
+    }
+    def error(msg: String): F[Unit] = {
+      errors = errors :+ msg
+      ().pure[F]
     }
   }
 

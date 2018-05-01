@@ -27,7 +27,6 @@ object TestLReduce extends App {
   LReduce[Task].distribute(LPar(source)).runAsync.onComplete {
 
     case Success(_lPar) =>
-
       println(
         _lPar._1
           .map(_.ph.map(print).toString)

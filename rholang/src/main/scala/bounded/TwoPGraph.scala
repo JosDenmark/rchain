@@ -1,6 +1,6 @@
 package bounded
 
-import scala.concurrent.{ExecutionContext, Future}
+import scala.concurrent._
 
 case class TwoPGraph[A](vSet: TwoPSet[IVertex[A]], eSet: TwoPSet[IEdge[A]]) {
 
@@ -10,7 +10,7 @@ case class TwoPGraph[A](vSet: TwoPSet[IVertex[A]], eSet: TwoPSet[IEdge[A]]) {
 
   def replicate: TwoPGraphReplica[A] = TwoPGraphReplica(this)
 
-  def map[B](f: A => B): TwoPGraph[B] = TwoPGraph(
+  @inline def map[B](f: A => B): TwoPGraph[B] = TwoPGraph(
     vSet.map(v => Vertex(f(v.get))),
     eSet.map(e => Edge(f(e.source.get), f(e.target.get)))
   )
@@ -19,19 +19,17 @@ case class TwoPGraph[A](vSet: TwoPSet[IVertex[A]], eSet: TwoPSet[IEdge[A]]) {
 }
 
 object TwoPGraph {
-
   def empty[A]: TwoPGraph[A] = TwoPGraph(
     TwoPSet.empty[IVertex[A]],
     TwoPSet.empty[IEdge[A]]
   )
-
 }
 
 case class TwoPGraphReplica[A](vSet: TwoPSet[IVertex[A]],
                                eSet: TwoPSet[IEdge[A]],
                                global: TwoPGraph[A]) {
 
-  implicit val context: ExecutionContext = scala.concurrent.ExecutionContext.Implicits.global
+  implicit lazy val context: ExecutionContext = scala.concurrent.ExecutionContext.Implicits.global
 
   def +=(v: A): TwoPGraphReplica[A] = updateVertex(Add(Vertex(v)))
 
@@ -114,11 +112,9 @@ case class TwoPGraphReplica[A](vSet: TwoPSet[IVertex[A]],
 }
 
 object TwoPGraphReplica {
-
   def apply[A](global: TwoPGraph[A]): TwoPGraphReplica[A] = TwoPGraphReplica(
     TwoPSet.empty[IVertex[A]],
     TwoPSet.empty[IEdge[A]],
     global
   )
-
 }

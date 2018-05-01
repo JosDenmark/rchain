@@ -2,6 +2,7 @@ package bounded
 
 sealed abstract class IVertex[+A] extends Serializable {
   self =>
+
   def get: A
 
   def isEmpty: Boolean

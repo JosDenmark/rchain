@@ -2,6 +2,7 @@ package bounded
 
 sealed abstract class IEdge[+A] extends Serializable {
   self =>
+
   def source: IVertex[A]
 
   def target: IVertex[A]

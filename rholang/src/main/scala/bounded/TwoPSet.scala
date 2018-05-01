@@ -9,6 +9,7 @@ case class Add[+A](e: A) extends Update[A]
 case class Remove[+A](e: A) extends Update[A]
 
 case class TwoPSet[A](addSet: GSet[A], removeSet: GSet[A]) extends Convergent[A] {
+
   def query(e: A): Boolean = addSet.query(e) & !removeSet.query(e)
 
   def +=(e: A): TwoPSet[A] = update(Add(e))
@@ -22,13 +23,13 @@ case class TwoPSet[A](addSet: GSet[A], removeSet: GSet[A]) extends Convergent[A]
 
   def value(): mutable.Set[A] = addSet.value -- removeSet.value
 
-  def map[B](f: A => B): TwoPSet[B] = TwoPSet(addSet.map(f), removeSet.map(f))
+  @inline def map[B](f: A => B): TwoPSet[B] = TwoPSet(addSet.map(f), removeSet.map(f))
 
   override def toString: String = "{ " + value().mkString(", ") + " }"
 }
 
 object TwoPSet {
-  def empty[A]: TwoPSet[A] = new TwoPSet[A](GSet.empty[A], GSet.empty[A])
+  def empty[A]: TwoPSet[A] = TwoPSet(GSet.empty[A], GSet.empty[A])
 
   def compare[A](s: TwoPSet[A], t: TwoPSet[A]): Boolean =
     s.addSet.value.subsetOf(t.addSet.value) || s.removeSet.value.subsetOf(t.removeSet.value)

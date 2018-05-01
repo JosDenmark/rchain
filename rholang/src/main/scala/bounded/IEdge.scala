@@ -1,4 +1,4 @@
-package rstop
+package bounded
 
 sealed abstract class IEdge[+A] extends Serializable {
   self =>

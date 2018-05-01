@@ -1,4 +1,4 @@
-package object rstop {
+package object bounded {
 
   trait Replicated
 

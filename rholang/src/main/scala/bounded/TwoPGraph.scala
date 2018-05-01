@@ -1,4 +1,4 @@
-package rstop
+package bounded
 
 import scala.concurrent.{ExecutionContext, Future}
 

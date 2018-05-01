@@ -1,4 +1,4 @@
-package rstop
+package bounded
 
 import coop.rchain.models._
 

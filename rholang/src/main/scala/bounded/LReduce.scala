@@ -1,4 +1,4 @@
-package rstop
+package bounded
 
 import cats.Monad
 import coop.rchain.models.Channel.ChannelInstance.Quote
